@@ -70,9 +70,9 @@ def is_admin(user_id):
 
 
 # ---------- Команды ----------
-@bot.message_handler(commands=["start"])
+@bot.message_handler(commands=["start"], func=lambda m: m.chat.type == "private")
 def cmd_start(message):
-    bot.send_message(message.chat.id, "🌸 Напишите свой тейк — поделитесь опытом или мнением.")
+    bot.send_message(message.chat.id, "🌸 Напишите свой тейк,а мы его опубликуем. Бот сам ставит оформление,включая хештеги")
 
 
 @bot.message_handler(commands=["addtag"])
@@ -120,7 +120,9 @@ def cmd_taglist(message):
 
 
 # ---------- Приём текста тейка ----------
-@bot.message_handler(func=lambda m: m.text and not m.text.startswith("/"))
+@bot.message_handler(
+    func=lambda m: m.text and not m.text.startswith("/") and m.chat.type == "private"
+)
 def handle_text(message):
     user_id = message.from_user.id
     user_drafts[user_id] = {"text": message.text, "category": None, "tags": set()}
@@ -252,6 +254,48 @@ def cb_confirm(call):
     )
     bot.send_message(ADMIN_CHAT_ID, admin_text, reply_markup=kb)
 
+
+# ---------- Модерация ----------
+@bot.callback_query_handler(func=lambda c: c.data.startswith("approve:"))
+def cb_approve(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "Только для админов.")
+        return
+    review_id = int(call.data.split(":", 1)[1])
+    item = pending_review.pop(review_id, None)
+    if not item:
+        bot.answer_callback_query(call.id, "Уже обработано.")
+        return
+
+    all_tags = [item["category"]] + item["tags"]
+    tags_line = " ".join(f"#{t}" for t in all_tags)
+    signature = f'#тейк | {COMMUNITY_HANDLE} | <a href="{BOT_LINK}">takebot</a>'
+    post_text = f"{html.escape(item['text'])}\n\n{signature}\n{tags_line}"
+
+    bot.send_message(CHANNEL_ID, post_text)
+    bot.send_message(item["user_id"], "🌟 Ваш тейк опубликован!")
+    bot.edit_message_text("✅ Одобрено и опубликовано.", call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("reject:"))
+def cb_reject(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "Только для админов.")
+        return
+    review_id = int(call.data.split(":", 1)[1])
+    item = pending_review.pop(review_id, None)
+    if not item:
+        bot.answer_callback_query(call.id, "Уже обработано.")
+        return
+    bot.send_message(item["user_id"], "Ваш тейк отклонён модератором.")
+    bot.edit_message_text("❌ Отклонено.", call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id)
+
+
+if __name__ == "__main__":
+    print("Bot started")
+    bot.infinity_polling()
 
 # ---------- Модерация ----------
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve:"))
