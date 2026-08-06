@@ -80,7 +80,7 @@ def load_tags():
             "расстройство": [
                 "депрессия", "тревожноерасстройство", "паническиеатаки", "бар",
                 "шар", "прл", "птср", "кптср", "окр", "рпп",
-                "диссоциативныерасстройства", "шизофрения", "социофобия",
+                "дри", "шизофрения", "социофобия",
             ],
             "нейроотличие": [
                 "сдвг", "рас", "дислексия", "синдромтуретта", "диспраксия",
@@ -111,11 +111,11 @@ def save_list_file(path, data):
 
 CAT_ARTS = load_list_file(CAT_ARTS_FILE, [])
 SUPPORT_PHRASES = load_list_file(PHRASES_FILE, [
-    "Ты не один.",
+    "Помни...Ты не один.",
     "Спасибо, что поделился — ты значимый.",
-    "Спасибо за тейк. Помни: тебе не обязательно сворачивать горы, чтобы тебя любили.",
-    "Твои чувства имеют значение.",
-    "Ты имеешь право на поддержку и заботу, просто потому что ты есть.",
+    "Помни: тебе не обязательно сворачивать горы, чтобы тебя любили.",
+    "Помни...Твои чувства имеют значение.",
+    "Помни...Ты имеешь право на поддержку и заботу, просто потому что ты есть.",
 ])
 
 # ---------- Расписание ----------
@@ -372,7 +372,7 @@ def handle_incoming_take(message):
     user_id = message.from_user.id
 
     if is_banned(user_id):
-        bot.send_message(user_id, "❌ Вы заблокированы и не можете отправлять тейки.")
+        bot.send_message(user_id, "❌ Вы заблокированы за нарушение правил и не можете отправлять тейки.")
         return
 
     if not check_subscription(user_id):
@@ -705,7 +705,7 @@ def cb_reject(call):
     admin_name = html.escape(call.from_user.first_name or call.from_user.username or "админ")
     bot.send_message(
         item["user_id"],
-        "❌ Ваш тейк отклонён: нарушение правил чата или по решению администрации."
+        "❌ Ваш тейк отклонён за рушение правил или по решению администрации."
     )
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=types.InlineKeyboardMarkup())
     bot.send_message(call.message.chat.id, f"❌ Отклонено ({admin_name}).", reply_to_message_id=call.message.message_id)
