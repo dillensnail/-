@@ -192,9 +192,9 @@ def get_post_url(msg):
 
 def publish_entry(entry):
     """
-    Публикация через двухшаговый пересыл:
-    1. Скопировать в тех-чат/буфер (стирает имя автора, сохраняя премиум-эмодзи и стили).
-    2. Переслать из тех-чата в основной канал (создаёт плашку 'Переслано от...').
+    1. Формируем полный текст (исходный текст + подпись + хештеги).
+    2. Отправляем в тех-чат (STORAGE_CHANNEL_ID) через copy_message — стираем юзера, сохраняем эмодзи и ВШИВАЕМ оформление.
+    3. Пересылаем готовый пост из тех-чата в основной канал через forward_message (получаем плашку 'Переслано от...').
     """
     all_tags = [entry["category"]] + entry["tags"]
     tags_line = "\n" + " ".join(f"#{t}" for t in all_tags)
@@ -203,11 +203,17 @@ def publish_entry(entry):
     msg_id = entry["message_id"]
 
     original_text = entry.get("text_html", "").strip()
-    full_text = f"{original_text}{SIGNATURE_QUOTE}{tags_line}" if original_text else f"{SIGNATURE_QUOTE.strip()}{tags_line}"
+    
+    # Формируем ИТОГОВЫЙ текст с подписью и хештегами
+    if original_text:
+        full_text = f"{original_text}{SIGNATURE_QUOTE}{tags_line}"
+    else:
+        full_text = f"{SIGNATURE_QUOTE.strip()}{tags_line}"
 
     final_msg = None
 
     if entry.get("media_group_messages"):
+        # Для альбомов: копируем в тех-чат с итоговым подписом
         stored_msgs = bot.copy_messages(
             STORAGE_CHANNEL_ID, 
             user_id, 
@@ -215,11 +221,13 @@ def publish_entry(entry):
             caption=full_text, 
             parse_mode="HTML"
         )
+        # Пересылаем альбом в основной канал
         for m in stored_msgs:
             f_msg = bot.forward_message(CHANNEL_ID, STORAGE_CHANNEL_ID, m.message_id)
             if not final_msg:
                 final_msg = f_msg
     else:
+        # Для одиночных сообщений (текст / фото / видео)
         stored_msg = bot.copy_message(
             STORAGE_CHANNEL_ID, 
             user_id, 
@@ -227,8 +235,10 @@ def publish_entry(entry):
             caption=full_text, 
             parse_mode="HTML"
         )
+        # Пересылаем уже готовый и оформленный пост в основной канал
         final_msg = bot.forward_message(CHANNEL_ID, STORAGE_CHANNEL_ID, stored_msg.message_id)
 
+    # Уведомление автору
     if final_msg:
         post_url = get_post_url(final_msg)
         try:
